@@ -2,20 +2,24 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from dj_rest_auth.registration.serializers import RegisterSerializer as DefaultRegisterSerializer
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(style={'input_type': 'password'}, write_only=True)
+    last_name = serializers.CharField(allow_blank=True)
 
     class Meta:
         model = get_user_model()
-        fields = ['email', 'password', 'password2']
+        fields = ['email', 'first_name', 'last_name', 'password', 'password2']
         extra_kwargs = {
             'password': {'write_only': True},
         }
 
     def save(self):
         user = get_user_model()(
-            email=self.validated_data['email']
+            email=self.validated_data['email'], 
+            first_name=self.validated_data['first_name'], 
+            last_name=self.validated_data.get('last_name', '')
         )
         password = self.validated_data['password']
         password2 = self.validated_data['password2']
@@ -43,3 +47,26 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         data['user'] = self.user
         return data
+
+
+
+User = get_user_model()
+
+class RegisterSerializer(DefaultRegisterSerializer):
+    """
+    This serializer class is to overwrite the exisiting serializer in dj-rest-auth package
+    that requires username field. This will be exported to the dj_rest_auth_conf file.
+    """
+    email = serializers.EmailField(required=True)
+    first_name = serializers.CharField(required=True)
+    last_name = serializers.CharField(required=False)
+
+    def get_cleaned_data(self):
+        super(RegisterSerializer, self).get_cleaned_data()
+        return {
+            'email': self.validated_data.get('email', ''),
+            'password1': self.validated_data.get('password1', ''),
+            'password2': self.validated_data.get('password2', ''),
+            'first_name': self.validated_data.get('first_name', ''),
+            'last_name': self.validated_data.get('last_name', '')
+        }
